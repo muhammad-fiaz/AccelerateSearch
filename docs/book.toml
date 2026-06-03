@@ -2,7 +2,6 @@
 title = "AccelerateSearch"
 authors = ["Muhammad Fiaz <contact@muhammadfiaz.com>"]
 language = "en"
-multilingual = false
 # `src` is the docs root itself so the markdown files live at
 # `docs/architecture.md`, `docs/api.md`, etc. (the layout the
 # GitHub Pages site mirrors verbatim).
