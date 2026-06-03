@@ -1,0 +1,22 @@
+[book]
+title = "AccelerateSearch"
+authors = ["Muhammad Fiaz <contact@muhammadfiaz.com>"]
+language = "en"
+multilingual = false
+# `src` is the docs root itself so the markdown files live at
+# `docs/architecture.md`, `docs/api.md`, etc. (the layout the
+# GitHub Pages site mirrors verbatim).
+src = "."
+description = "Documentation for AccelerateSearch, a self-hosted, production-grade search engine written in Rust."
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/muhammad-fiaz/AccelerateSearch"
+edit-url-template = "https://github.com/muhammad-fiaz/AccelerateSearch/edit/main/docs/{path}"
+site-url = "https://muhammad-fiaz.github.io/AccelerateSearch/"
+mathjax-support = false
+copy-fonts = true
+fold.enable = true
+fold.level = 1
+no-prepend-js = false

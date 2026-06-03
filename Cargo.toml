@@ -33,6 +33,12 @@ members = [
     "crates/utils",
 ]
 
+
+[workspace.metadata.docs]
+mdbook = "0.4"
+mdbook-mermaid = "0.13"
+
+
 [workspace.lints.rust]
 unsafe_code = "deny"
 unused_must_use = "deny"

@@ -13,7 +13,7 @@ use errors::AppResult;
 use facets::{FacetDistribution, FacetEngine};
 use filters::FilterEvaluator;
 use highlighting::{Highlighter, HighlighterConfig};
-use indexing::{Analyzer, AnalyzerConfig, IndexStore};
+use indexing::IndexStore;
 use typo::TypoLevel;
 use utils::Stopwatch;
 
@@ -25,20 +25,119 @@ use crate::query::parse_query;
 pub struct SearchEngine {
     store: Arc<IndexStore>,
     cfg: SearchConfig,
+    cache: Option<Arc<cache::TtlCache<SearchCacheKey, SearchResponse>>>,
+}
+
+/// Cache key for a search request. Two requests with the same key produce
+/// the same response (modulo timing).
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct SearchCacheKey {
+    pub collection: String,
+    pub q: String,
+    pub filter: String,
+    pub sort: String,
+    pub offset: usize,
+    pub limit: usize,
+    pub facets: Vec<String>,
 }
 
 impl SearchEngine {
     /// Creates a new engine.
     #[must_use]
     pub fn new(store: Arc<IndexStore>, cfg: SearchConfig) -> Self {
-        Self { store, cfg }
+        Self {
+            store,
+            cfg,
+            cache: None,
+        }
     }
 
-    /// Executes a search request against `collection`.
+    /// Attaches a result cache to the engine. The cache is keyed on the
+    /// request content (collection, query, filter, sort, pagination, facets)
+    /// and provides TTL-based invalidation.
+    #[must_use]
+    pub fn with_cache(
+        mut self,
+        cache: Arc<cache::TtlCache<SearchCacheKey, SearchResponse>>,
+    ) -> Self {
+        self.cache = Some(cache);
+        self
+    }
+
+    /// Invalidates every cached result for `collection`. Call this from
+    /// document write / settings update paths.
+    pub fn invalidate_collection(&self, collection: &CollectionId) {
+        if let Some(c) = &self.cache {
+            let prefix = collection.as_str();
+            // No native prefix-invalidation in our LRU; full clear is the
+            // safe path. (For larger collections a per-entry version stamp
+            // could be used; we keep it simple and correct.)
+            c.clear();
+            let _ = prefix;
+        }
+    }
+
+    /// Returns all terms that start with `prefix`, up to `limit` entries.
+    /// Backed by the FST term dictionary for O(log n + k) lookups.
+    pub fn term_prefix(
+        &self,
+        collection: &CollectionId,
+        prefix: &str,
+        limit: usize,
+    ) -> AppResult<Vec<(String, u64)>> {
+        let index_arc = self.store.get_or_load(collection)?;
+        let index = index_arc.read();
+        Ok(index.term_prefix(prefix, limit))
+    }
+
+    /// Executes a search request against `collection`, applying a curated
+    /// `ruleset` (if any) to the hit list (pinning, hiding, filter/sort
+    /// overrides).
+    pub async fn search_with_rules(
+        &self,
+        collection: &CollectionId,
+        req: SearchRequest,
+        ruleset: Option<models::Ruleset>,
+    ) -> AppResult<SearchResponse> {
+        let key = self.cache_key_for(collection, &req);
+        if let Some(cache) = &self.cache
+            && let Some(hit) = cache.get(&key)
+        {
+            return Ok(hit);
+        }
+        let resp = self.do_search(collection, req, ruleset).await?;
+        if let Some(cache) = &self.cache {
+            cache.put(key, resp.clone());
+        }
+        Ok(resp)
+    }
+
+    /// Executes a search request against `collection` without any ruleset.
     pub async fn search(
         &self,
         collection: &CollectionId,
         req: SearchRequest,
+    ) -> AppResult<SearchResponse> {
+        self.search_with_rules(collection, req, None).await
+    }
+
+    fn cache_key_for(&self, collection: &CollectionId, req: &SearchRequest) -> SearchCacheKey {
+        SearchCacheKey {
+            collection: collection.to_string(),
+            q: req.q.clone().unwrap_or_default(),
+            filter: req.filter.clone().unwrap_or_default(),
+            sort: req.sort.clone().unwrap_or_default().join("|"),
+            offset: req.offset,
+            limit: req.limit.unwrap_or(self.cfg.default_limit),
+            facets: req.facets.clone().unwrap_or_default(),
+        }
+    }
+
+    async fn do_search(
+        &self,
+        collection: &CollectionId,
+        req: SearchRequest,
+        ruleset: Option<models::Ruleset>,
     ) -> AppResult<SearchResponse> {
         let sw = Stopwatch::new();
         let limit = req
@@ -81,7 +180,6 @@ impl SearchEngine {
         };
 
         // 6. Hydrate hits, applying filter and highlights.
-        let _analyzer = Analyzer::new(AnalyzerConfig::default());
         let highlighter = Highlighter::new(HighlighterConfig {
             crop_length: Some(200),
             ..Default::default()
@@ -135,7 +233,7 @@ impl SearchEngine {
             }
         }
 
-        // 7. Apply sorting if requested.
+        // 7. Apply user-requested sorting.
         if let Some(sort_fields) = &req.sort {
             for sort_field in sort_fields {
                 let desc = sort_field.ends_with(":desc");
@@ -163,7 +261,11 @@ impl SearchEngine {
             }
         }
 
-        // 8. Facet distribution.
+        // 8. Apply ruleset (pinned, hidden, sort/filter overrides).
+        let (hits, _ruleset_summary) =
+            super::apply_rules(ruleset.as_ref(), req.q.as_deref().unwrap_or(""), hits);
+
+        // 9. Facet distribution.
         let mut facet_distribution: BTreeMap<String, Value> = BTreeMap::new();
         if let Some(facets) = &req.facets {
             let engine = FacetEngine::new(self.cfg.max_values_per_facet);
@@ -279,6 +381,131 @@ pub fn apply_typo(
 
 /// Cap on typo candidates injected per query term to keep expansion bounded.
 pub const MAX_TYPO_EXPANSION_PER_TERM: usize = 8;
+
+/// Applies a ruleset (curated query) to a hit list.
+///
+/// The supplied `ruleset` may be `None`, in which case the input is
+/// returned unchanged. When provided, the ruleset's rules are matched
+/// against `query` and their actions applied in order:
+/// * `PinnedHit` inserts a placeholder hit at the requested position.
+/// * `HideHits` removes hits whose `_id` is in the list.
+/// * `Sort` overrides the sort order.
+/// * `Filter` and `Query` are returned in the summary for the caller to
+///   apply (the search engine does not currently re-query the index).
+#[must_use]
+pub fn apply_rules(
+    ruleset: Option<&models::Ruleset>,
+    query: &str,
+    mut hits: Vec<SearchHit>,
+) -> (Vec<SearchHit>, Option<RulesetSummary>) {
+    let Some(rs) = ruleset else {
+        return (hits, None);
+    };
+    let q = query.to_ascii_lowercase();
+    let mut pinned_entries: Vec<(usize, String)> = Vec::new();
+    let mut hide_ids: Vec<String> = Vec::new();
+    let mut injected_filter: Option<String> = None;
+    let mut injected_sort: Option<Vec<String>> = None;
+    let mut effective_query: Option<String> = None;
+    let mut matched_rule_ids: Vec<uuid::Uuid> = Vec::new();
+    for rule in &rs.rules {
+        if !rule.enabled {
+            continue;
+        }
+        if !q.contains(&rule.query.to_ascii_lowercase()) {
+            continue;
+        }
+        matched_rule_ids.push(rule.id);
+        for action in &rule.actions {
+            match action {
+                models::RuleAction::PinnedHit { doc_id, position } => {
+                    pinned_entries.push((*position, doc_id.clone()));
+                }
+                models::RuleAction::HideHits { doc_ids } => hide_ids.extend(doc_ids.clone()),
+                models::RuleAction::Query { query } => {
+                    effective_query = Some(query.clone());
+                }
+                models::RuleAction::Filter { filter } => {
+                    injected_filter = Some(filter.clone());
+                }
+                models::RuleAction::Sort { sort } => {
+                    injected_sort = Some(sort.clone());
+                }
+            }
+        }
+    }
+    if !hide_ids.is_empty() {
+        hits.retain(|h| {
+            !hide_ids.iter().any(|hid| {
+                h.document
+                    .get("_id")
+                    .and_then(serde_json::Value::as_str)
+                    .map(|s| s == hid)
+                    .unwrap_or(false)
+            })
+        });
+    }
+    for (pos, doc_id) in &pinned_entries {
+        let placeholder = SearchHit {
+            document: serde_json::json!({ "_id": doc_id, "_pinned": true }),
+            formatted: None,
+            ranking_score: None,
+        };
+        let insert_at = (pos.saturating_sub(1)).min(hits.len());
+        hits.insert(insert_at, placeholder);
+    }
+    if let Some(sort) = injected_sort.clone() {
+        sort_hits(&sort, &mut hits);
+    }
+    let summary = RulesetSummary {
+        matched_rule_ids,
+        pinned_doc_ids: pinned_entries.into_iter().map(|(_, id)| id).collect(),
+        effective_query,
+        injected_filter,
+        injected_sort,
+    };
+    (hits, Some(summary))
+}
+
+fn sort_hits(sort_fields: &[String], hits: &mut [SearchHit]) {
+    use serde_json::Value;
+    for spec in sort_fields.iter().rev() {
+        let desc = spec.ends_with(":desc");
+        let field = spec.trim_end_matches(":desc").trim_end_matches(":asc");
+        hits.sort_by(|a, b| {
+            let va = a.document.get(field).unwrap_or(&Value::Null);
+            let vb = b.document.get(field).unwrap_or(&Value::Null);
+            let ord = match (va, vb) {
+                (Value::Number(x), Value::Number(y)) => x
+                    .as_f64()
+                    .zip(y.as_f64())
+                    .and_then(|(x, y)| x.partial_cmp(&y))
+                    .unwrap_or(std::cmp::Ordering::Equal),
+                (Value::String(x), Value::String(y)) => x.cmp(y),
+                _ => std::cmp::Ordering::Equal,
+            };
+            if desc { ord.reverse() } else { ord }
+        });
+    }
+}
+
+/// Summary of how a ruleset was applied.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct RulesetSummary {
+    /// IDs of rules that matched.
+    pub matched_rule_ids: Vec<uuid::Uuid>,
+    /// Pinned document ids.
+    pub pinned_doc_ids: Vec<String>,
+    /// Effective query after rule substitution.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effective_query: Option<String>,
+    /// Filter injected by the ruleset.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub injected_filter: Option<String>,
+    /// Sort injected by the ruleset.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub injected_sort: Option<Vec<String>>,
+}
 
 /// A flat record of an executed search (for the multi-search endpoint).
 #[derive(Debug, Clone)]

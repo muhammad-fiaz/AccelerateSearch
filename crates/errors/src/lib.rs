@@ -118,6 +118,12 @@ impl AppError {
         Self::Validation(msg.into())
     }
 
+    /// Convenience constructor for a forbidden error.
+    #[must_use]
+    pub fn forbidden(msg: impl Into<String>) -> Self {
+        Self::Forbidden(msg.into())
+    }
+
     /// Returns the HTTP status code corresponding to this error variant.
     #[must_use]
     pub fn http_status(&self) -> StatusCode {

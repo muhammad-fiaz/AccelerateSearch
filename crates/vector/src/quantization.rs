@@ -368,7 +368,8 @@ pub fn distance(q: &QuantizerDispatch, query: &[f32], code: &[u8]) -> f32 {
 }
 
 /// Sum type that lets callers erase the concrete quantizer at the API
-/// boundary. Use [`encode`] to produce codes and [`distance`] to score them.
+/// boundary. Use [`Self::encode`] to produce codes and [`Self::distance`]
+/// to score them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum QuantizerDispatch {
     /// Scalar 8-bit quantizer.

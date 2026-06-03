@@ -9,7 +9,7 @@
 //! not       := "NOT" not | atom
 //! atom      := "(" expr ")" | comparison
 //! comparison := field op value
-//! op        := "=" | "!=" | ">" | ">=" | "<" | "<=" | "TO" | "IN" | "NOT" "IN" | "EXISTS" | "IS" "NULL" | "IS" "NOT" "NULL"
+//! op        := "=" | "!=" | ">" | ">=" | "<" | "<=" | "TO" | "IN" | "NOT" "IN" | "EXISTS" | "IS" "NULL" | "IS" "NOT" "NULL" | "CONTAINS" | "STARTS_WITH" | "ENDS_WITH" | "LIKE" | "GEO_BBOX" | "GEO_RADIUS"
 //! value     := number | string | bool | null | array
 //! ```
 
@@ -17,7 +17,7 @@ use serde_json::Value;
 
 use errors::{AppError, AppResult};
 
-use crate::ast::Filter;
+use crate::ast::{Filter, GeoPoint};
 
 /// Token kinds emitted by the lexer.
 #[derive(Debug, Clone, PartialEq)]
@@ -413,6 +413,50 @@ impl Parser {
                     }
                     Err(AppError::bad_request("expected NULL or NOT NULL after IS"))
                 }
+                "CONTAINS" => {
+                    let v = self.parse_value()?;
+                    expect_string(v, "CONTAINS").map(|s| Filter::Contains(field, s))
+                }
+                "STARTS_WITH" => {
+                    let v = self.parse_value()?;
+                    expect_string(v, "STARTS_WITH").map(|s| Filter::StartsWith(field, s))
+                }
+                "ENDS_WITH" => {
+                    let v = self.parse_value()?;
+                    expect_string(v, "ENDS_WITH").map(|s| Filter::EndsWith(field, s))
+                }
+                "LIKE" => {
+                    let v = self.parse_value()?;
+                    expect_string(v, "LIKE").map(|s| Filter::Like(field, s))
+                }
+                "GEO_BBOX" => {
+                    let top_right = self.parse_geo_point()?;
+                    let bottom_left = self.parse_geo_point()?;
+                    Ok(Filter::GeoBoundingBox {
+                        field,
+                        top_right,
+                        bottom_left,
+                    })
+                }
+                "GEO_RADIUS" => {
+                    let center = self.parse_geo_point()?;
+                    let d = self.parse_value()?;
+                    let dist = match d {
+                        Value::Number(n) => n
+                            .as_f64()
+                            .ok_or_else(|| AppError::bad_request("invalid radius"))?,
+                        _ => {
+                            return Err(AppError::bad_request(
+                                "GEO_RADIUS distance must be a number",
+                            ));
+                        }
+                    };
+                    Ok(Filter::GeoRadius {
+                        field,
+                        center,
+                        distance_meters: dist,
+                    })
+                }
                 other => Err(AppError::bad_request(format!(
                     "unknown operator '{other}' in filter"
                 ))),
@@ -421,6 +465,30 @@ impl Parser {
                 "expected operator after field '{field}', got {op:?}"
             ))),
         }
+    }
+
+    fn parse_geo_point(&mut self) -> AppResult<GeoPoint> {
+        let lat = self.parse_value()?;
+        let lng = self.parse_value()?;
+        let lat = match lat {
+            Value::Number(n) => n
+                .as_f64()
+                .ok_or_else(|| AppError::bad_request("invalid lat"))?,
+            _ => return Err(AppError::bad_request("lat must be a number")),
+        };
+        let lng = match lng {
+            Value::Number(n) => n
+                .as_f64()
+                .ok_or_else(|| AppError::bad_request("invalid lng"))?,
+            _ => return Err(AppError::bad_request("lng must be a number")),
+        };
+        if !(-90.0..=90.0).contains(&lat) {
+            return Err(AppError::bad_request("lat must be in [-90, 90]"));
+        }
+        if !(-180.0..=180.0).contains(&lng) {
+            return Err(AppError::bad_request("lng must be in [-180, 180]"));
+        }
+        Ok(GeoPoint { lat, lng })
     }
 
     fn parse_value(&mut self) -> AppResult<Value> {
@@ -506,6 +574,17 @@ impl Parser {
                 "expected '{want}', got '{s}'"
             )))
         }
+    }
+}
+
+/// Unwraps a string-typed `serde_json::Value`, returning a typed error if
+/// the value is the wrong kind.
+fn expect_string(v: Value, op: &str) -> AppResult<String> {
+    match v {
+        Value::String(s) => Ok(s),
+        _ => Err(AppError::bad_request(format!(
+            "{op} operator requires a string value"
+        ))),
     }
 }
 
@@ -598,5 +677,41 @@ mod tests {
     fn parse_not_in() {
         let f = parse(r#"category NOT IN ["a", "b"]"#);
         assert!(matches!(f, Filter::NotIn(_, _)));
+    }
+
+    #[test]
+    fn parse_contains() {
+        let f = parse(r#"title CONTAINS "rust""#);
+        assert!(matches!(f, Filter::Contains(_, _)));
+    }
+
+    #[test]
+    fn parse_starts_with() {
+        let f = parse(r#"title STARTS_WITH "hello""#);
+        assert!(matches!(f, Filter::StartsWith(_, _)));
+    }
+
+    #[test]
+    fn parse_ends_with() {
+        let f = parse(r#"title ENDS_WITH "world""#);
+        assert!(matches!(f, Filter::EndsWith(_, _)));
+    }
+
+    #[test]
+    fn parse_like() {
+        let f = parse(r#"title LIKE "ru%""#);
+        assert!(matches!(f, Filter::Like(_, _)));
+    }
+
+    #[test]
+    fn parse_geo_bbox() {
+        let f = parse("loc GEO_BBOX 10.0 20.0 -10.0 -20.0");
+        assert!(matches!(f, Filter::GeoBoundingBox { .. }));
+    }
+
+    #[test]
+    fn parse_geo_radius() {
+        let f = parse("loc GEO_RADIUS 0.0 0.0 5000");
+        assert!(matches!(f, Filter::GeoRadius { .. }));
     }
 }

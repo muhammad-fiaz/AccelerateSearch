@@ -12,6 +12,9 @@ use storage::StorageBackend;
 use tasks::TaskQueue;
 use vector::VectorIndexStore;
 
+use crate::v1::hooks::HookService;
+use crate::v1::rules::RuleService;
+
 /// Global application state passed to every handler.
 #[derive(Clone)]
 pub struct AppState {
@@ -33,6 +36,10 @@ pub struct AppState {
     pub snapshots: Arc<SnapshotService>,
     /// Vector index store.
     pub vectors: Arc<VectorIndexStore>,
+    /// Hook service (webhooks).
+    pub hooks: Arc<HookService>,
+    /// Search rules service (curated queries).
+    pub rules: Arc<RuleService>,
     /// Configuration for the running instance.
     pub config: Arc<config_crate::AppConfig>,
 }

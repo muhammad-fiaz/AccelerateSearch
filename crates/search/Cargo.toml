@@ -30,6 +30,8 @@ facets.workspace = true
 highlighting.workspace = true
 config-crate.workspace = true
 utoipa.workspace = true
+uuid.workspace = true
+cache.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true }

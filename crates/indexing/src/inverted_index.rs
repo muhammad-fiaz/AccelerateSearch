@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use models::DocumentId;
 
+use crate::term_dict::TermDict;
+
 /// Per-document field length statistics used for BM25 normalisation.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FieldLengths(pub BTreeMap<String, usize>);
@@ -75,6 +77,11 @@ pub struct InvertedIndex {
     pub field_lengths: BTreeMap<DocumentId, FieldLengths>,
     /// Collection-level stats.
     pub stats: CollectionStats,
+    /// FST-backed term dictionary, rebuilt on every commit. Provides
+    /// O(log n) prefix and exact lookups. `None` for an empty index.
+    /// Not persisted to storage — rebuilt on load.
+    #[serde(default, skip)]
+    pub term_dict: Option<TermDict>,
 }
 
 impl InvertedIndex {
@@ -172,6 +179,39 @@ impl InvertedIndex {
         let entry = self.field_lengths.entry(doc_id.clone()).or_default();
         entry.add(field, n);
     }
+
+    /// Rebuilds the FST-backed term dictionary from `terms`. Call after a
+    /// batch of mutations to make prefix queries fast.
+    pub fn rebuild_term_dict(&mut self) {
+        let mut builder = crate::term_dict::TermDictBuilder::with_capacity(self.terms.len());
+        for (term, info) in &self.terms {
+            builder.add(term.as_str(), info.total_term_freq);
+        }
+        self.term_dict = Some(
+            builder
+                .build()
+                .unwrap_or_else(|_| crate::term_dict::TermDict::new()),
+        );
+    }
+
+    /// Returns all terms that start with `prefix`, up to `limit` entries.
+    #[must_use]
+    pub fn term_prefix(&self, prefix: &str, limit: usize) -> Vec<(String, u64)> {
+        match &self.term_dict {
+            Some(d) => d.prefix(prefix, limit),
+            None => {
+                if limit == 0 {
+                    return Vec::new();
+                }
+                self.terms
+                    .range(prefix.to_string()..)
+                    .take_while(|(k, _)| k.starts_with(prefix))
+                    .take(limit)
+                    .map(|(k, info)| (k.clone(), info.total_term_freq))
+                    .collect()
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -225,5 +265,30 @@ mod tests {
         assert_eq!(idx.stats.doc_count, 2);
         assert_eq!(idx.stats.total_field_length, 15);
         assert!((idx.stats.avg_field_length - 7.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn term_dict_prefix_lookup() {
+        let mut idx = InvertedIndex::new();
+        for w in ["apple", "apricot", "avocado", "banana"] {
+            idx.add_occurrence(w, "body", &doc("1"));
+        }
+        idx.rebuild_term_dict();
+        let p = idx.term_prefix("ap", 100);
+        assert_eq!(p.len(), 2);
+        assert_eq!(p[0].0, "apple");
+        assert_eq!(p[1].0, "apricot");
+        let p2 = idx.term_prefix("z", 100);
+        assert!(p2.is_empty());
+    }
+
+    #[test]
+    fn term_dict_falls_back_when_not_built() {
+        let mut idx = InvertedIndex::new();
+        idx.add_occurrence("apple", "body", &doc("1"));
+        idx.add_occurrence("apricot", "body", &doc("1"));
+        // No rebuild_term_dict call -> fallback to BTreeMap range scan.
+        let p = idx.term_prefix("ap", 10);
+        assert_eq!(p.len(), 2);
     }
 }

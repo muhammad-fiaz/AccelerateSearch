@@ -561,6 +561,76 @@ pub struct VersionInfo {
     pub commit_date: Option<String>,
 }
 
+/// A search ruleset scoped to a single collection.
+///
+/// Curated queries attach rules to a query pattern to pin, hide, filter,
+/// or sort documents.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct Ruleset {
+    /// Collection this ruleset applies to.
+    pub index_uid: CollectionId,
+    /// List of rules.
+    #[serde(default)]
+    pub rules: Vec<Rule>,
+    /// Creation timestamp.
+    pub created_at: DateTime<Utc>,
+    /// Last update timestamp.
+    pub updated_at: DateTime<Utc>,
+}
+
+/// A single search rule.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct Rule {
+    /// Stable id for this rule.
+    pub id: Uuid,
+    /// Human-friendly name.
+    pub name: String,
+    /// Whether the rule is active.
+    #[serde(default = "default_rule_enabled")]
+    pub enabled: bool,
+    /// Query pattern this rule applies to (e.g. `"apple watch"`).
+    pub query: String,
+    /// Actions to take when the rule matches.
+    pub actions: Vec<RuleAction>,
+}
+
+fn default_rule_enabled() -> bool {
+    true
+}
+
+/// Action taken when a rule matches.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum RuleAction {
+    /// Pin a document to a specific position.
+    PinnedHit {
+        /// The document id to pin.
+        doc_id: String,
+        /// 1-based position.
+        position: usize,
+    },
+    /// Hide documents whose `_id` is in the list.
+    HideHits {
+        /// Document ids to hide.
+        doc_ids: Vec<String>,
+    },
+    /// Replace/augment the user query with a different one.
+    Query {
+        /// The replacement query.
+        query: String,
+    },
+    /// Force a specific filter expression.
+    Filter {
+        /// Filter expression (in AccelerateSearch DSL).
+        filter: String,
+    },
+    /// Force a specific sort.
+    Sort {
+        /// Sort fields (`field:asc` / `field:desc`).
+        sort: Vec<String>,
+    },
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

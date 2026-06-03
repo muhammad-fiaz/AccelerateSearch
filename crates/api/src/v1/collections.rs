@@ -222,7 +222,10 @@ pub async fn update_settings(
         .update_settings(&uid, body.into_inner())
         .await
     {
-        Ok(c) => HttpResponse::Ok().json(c),
+        Ok(c) => {
+            state.search.invalidate_collection(&uid);
+            HttpResponse::Ok().json(c)
+        }
         Err(e) => e.error_response(),
     }
 }
@@ -242,7 +245,10 @@ pub async fn update_settings(
 pub async fn reset_settings(state: web::Data<AppState>, path: web::Path<String>) -> HttpResponse {
     let uid = CollectionId::new(path.into_inner());
     match state.collections.reset_settings(&uid).await {
-        Ok(c) => HttpResponse::Ok().json(c),
+        Ok(c) => {
+            state.search.invalidate_collection(&uid);
+            HttpResponse::Ok().json(c)
+        }
         Err(e) => e.error_response(),
     }
 }

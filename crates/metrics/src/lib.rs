@@ -179,13 +179,11 @@ pub fn record_memory_usage() {
     #[cfg(target_os = "linux")]
     {
         use std::fs;
-        if let Ok(s) = fs::read_to_string("/proc/self/statm") {
-            if let Some(rss_pages) = s.split_whitespace().nth(1) {
-                if let Ok(pages) = rss_pages.parse::<u64>() {
-                    MEMORY_USAGE_BYTES.set((pages * 4096) as i64);
-                    return;
-                }
-            }
+        if let Ok(s) = fs::read_to_string("/proc/self/statm")
+            && let Some(rss_pages) = s.split_whitespace().nth(1)
+            && let Ok(pages) = rss_pages.parse::<u64>()
+        {
+            MEMORY_USAGE_BYTES.set((pages * 4096) as i64);
         }
     }
     #[cfg(target_os = "macos")]

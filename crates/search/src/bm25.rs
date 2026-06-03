@@ -1,8 +1,8 @@
 //! BM25 ranking implementation.
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
-use indexing::{InvertedIndex, Posting, TermInfo};
+use indexing::{FieldLengths, InvertedIndex, Posting, TermInfo};
 
 /// Default BM25 parameters. `k1` controls term-frequency saturation, `b`
 /// controls length normalisation.
@@ -55,34 +55,44 @@ pub fn bm25_document_score(
 /// `(doc_id, score)` sorted by score descending.
 #[must_use]
 pub fn rank(index: &InvertedIndex, terms: &[String], k1: f64, b: f64) -> Vec<(String, f64)> {
-    let mut candidates: BTreeMap<String, Vec<(TermInfo, Posting, usize)>> = BTreeMap::new();
+    let total = index.stats.doc_count;
+    if total == 0 {
+        return Vec::new();
+    }
+    let avg = index.stats.avg_field_length.max(1.0);
+    // HashMap is significantly faster than BTreeMap for the insert-heavy
+    // workload we have here: postings are looked up by doc-id (an opaque
+    // key) and we only need to sort by score at the end.
+    let mut candidates: HashMap<&str, Vec<(TermInfo, Posting, usize)>> = HashMap::new();
     for term in terms {
-        if let (Some(info), Some(postings)) = (index.terms.get(term), index.postings.get(term)) {
-            for (doc_id, posting) in postings {
-                let field_length = index
-                    .field_lengths
-                    .get(doc_id)
-                    .map(|fl| fl.total())
-                    .unwrap_or(0);
-                candidates.entry(doc_id.to_string()).or_default().push((
-                    info.clone(),
-                    posting.clone(),
-                    field_length,
-                ));
-            }
+        let Some(info) = index.terms.get(term) else {
+            continue;
+        };
+        let Some(postings) = index.postings.get(term) else {
+            continue;
+        };
+        for (doc_id, posting) in postings {
+            let field_length = index
+                .field_lengths
+                .get(doc_id)
+                .map(FieldLengths::total)
+                .unwrap_or(0);
+            candidates.entry(doc_id.as_str()).or_default().push((
+                info.clone(),
+                posting.clone(),
+                field_length,
+            ));
         }
     }
-    let total = index.stats.doc_count;
-    let avg = index.stats.avg_field_length;
     let mut scored: Vec<(String, f64)> = candidates
         .into_iter()
         .map(|(doc_id, infos)| {
             let score = bm25_document_score(&infos, avg, total, k1, b);
-            (doc_id, score)
+            (doc_id.to_string(), score)
         })
         .filter(|(_, s)| *s > 0.0)
         .collect();
-    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
     scored
 }
 

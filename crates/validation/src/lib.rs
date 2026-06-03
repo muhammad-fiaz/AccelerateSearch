@@ -105,6 +105,44 @@ pub fn validate_query(q: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// Strips control characters (`\0`-`\x1f` except `\n`, `\t`, `\r`) and
+/// collapses runs of plain whitespace. Newlines and tabs are preserved.
+/// Returns a `Cow<str>` to avoid an allocation when the input is
+/// already clean.
+#[must_use]
+pub fn sanitize_input(s: &str) -> std::borrow::Cow<'_, str> {
+    use std::borrow::Cow;
+    let needs_clean = s
+        .chars()
+        .any(|c| c.is_control() && c != '\n' && c != '\t' && c != '\r')
+        || s.contains("  ");
+    if !needs_clean {
+        return Cow::Borrowed(s);
+    }
+    let mut out = String::with_capacity(s.len());
+    let mut prev_space = false;
+    for c in s.chars() {
+        if c.is_control() && c != '\n' && c != '\t' && c != '\r' {
+            continue;
+        }
+        if c == '\n' || c == '\t' || c == '\r' {
+            out.push(c);
+            prev_space = false;
+            continue;
+        }
+        if c.is_whitespace() {
+            if !prev_space {
+                out.push(' ');
+                prev_space = true;
+            }
+        } else {
+            out.push(c);
+            prev_space = false;
+        }
+    }
+    Cow::Owned(out)
+}
+
 /// Validates a filter expression.
 pub fn validate_filter(filter: &str) -> AppResult<()> {
     if filter.is_empty() {
@@ -237,5 +275,17 @@ mod tests {
         assert!(validate_api_key_name("frontend-key").is_ok());
         assert!(validate_api_key_name("").is_err());
         assert!(validate_api_key_name(&"x".repeat(257)).is_err());
+    }
+
+    #[test]
+    fn sanitize_input_strips_controls_and_collapses_whitespace() {
+        use std::borrow::Cow;
+        let r = sanitize_input("hello\0\x07 world  \nfoo");
+        assert!(matches!(r, Cow::Owned(_)));
+        // Newlines are preserved; runs of internal whitespace collapse.
+        assert_eq!(r, "hello world \nfoo");
+        let r = sanitize_input("clean");
+        assert!(matches!(r, Cow::Borrowed(_)));
+        assert_eq!(r, "clean");
     }
 }

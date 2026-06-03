@@ -131,6 +131,7 @@ impl IndexingPipeline {
                 }
             }
             idx.recompute_stats();
+            idx.rebuild_term_dict();
         }
         // Second pass: persist documents to storage (lock not held here).
         for (doc_id, _field_tokens, doc) in processed {

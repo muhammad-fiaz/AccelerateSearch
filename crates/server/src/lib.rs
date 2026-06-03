@@ -13,6 +13,8 @@ use tracing_actix_web::TracingLogger;
 use utoipa::OpenApi;
 
 use api::AppState;
+use api::v1::hooks::HookService;
+use api::v1::rules::RuleService;
 use auth::AuthService;
 use collections::CollectionStore;
 use config_crate::{AppConfig, CliCommand, CliOverrides};
@@ -87,16 +89,22 @@ pub async fn run() -> AppResult<()> {
     let index_store = Arc::new(IndexStore::new(storage.clone()));
     let pipeline = Arc::new(IndexingPipeline::new(index_store.clone(), storage.clone()));
     let documents = Arc::new(DocumentService::new(collections.clone(), pipeline.clone()));
-    let search = Arc::new(SearchEngine::new(
-        index_store.clone(),
-        config.search.clone(),
-    ));
+    let search_cache: Arc<cache::TtlCache<search::SearchCacheKey, search::SearchResponse>> =
+        Arc::new(cache::TtlCache::new(&config.cache));
+    let search = Arc::new(
+        SearchEngine::new(index_store.clone(), config.search.clone())
+            .with_cache(search_cache.clone()),
+    );
     let tasks = Arc::new(TaskQueue::new(storage.clone()));
     let snapshots = Arc::new(SnapshotService::new(
         storage.clone(),
         config.snapshots.clone(),
     ));
     let vectors = Arc::new(VectorIndexStore::new());
+    let hooks = Arc::new(HookService::new(storage.clone()));
+    hooks.load_all().await?;
+    let rules = Arc::new(RuleService::new(storage.clone()));
+    rules.load_all().await?;
 
     // Background workers.
     spawn_background_workers(config.clone(), tasks.clone(), auth.clone());
@@ -117,6 +125,8 @@ pub async fn run() -> AppResult<()> {
         tasks: tasks.clone(),
         snapshots: snapshots.clone(),
         vectors: vectors.clone(),
+        hooks: hooks.clone(),
+        rules: rules.clone(),
         config: Arc::new(config.clone()),
     };
 

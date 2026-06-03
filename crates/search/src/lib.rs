@@ -7,5 +7,8 @@ pub mod query;
 
 pub use bm25::{DEFAULT_B, DEFAULT_K1, bm25_document_score, bm25_score, rank};
 pub use dto::{SearchHit, SearchRequest, SearchResponse};
-pub use engine::{MultiSearchResult, SearchEngine, apply_typo, expand_terms_via_synonyms};
+pub use engine::{
+    MultiSearchResult, RulesetSummary, SearchCacheKey, SearchEngine, apply_rules, apply_typo,
+    expand_terms_via_synonyms,
+};
 pub use query::{Query, parse_query};

@@ -227,6 +227,10 @@ pub struct AuthConfig {
     pub master_key: String,
     /// If true, disable authentication entirely (dev mode only).
     pub disable_auth: bool,
+    /// Optional secret used to sign and validate tenant tokens. If not
+    /// configured, the master key (or a process-wide default) is used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_token_secret: Option<String>,
 }
 
 /// Search engine configuration.

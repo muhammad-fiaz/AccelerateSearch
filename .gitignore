@@ -11,6 +11,13 @@
 *.dll
 *.exe
 
+# mdbook output
+/docs/book
+/book
+
+# Combined site output (built by .github/workflows/docs.yml)
+/site
+
 # Data directories
 /data
 /data/*
@@ -93,7 +100,7 @@ ehthumbs.db
 Thumbs.db
 desktop.ini
 
-# Node.js (for documentation generation)
+# Node.js (for documentation tooling)
 node_modules/
 package-lock.json
 yarn.lock

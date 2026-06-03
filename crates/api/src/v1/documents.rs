@@ -57,10 +57,13 @@ pub async fn add_documents(
         })
         .collect();
     match state.documents.add_or_replace(&uid, docs).await {
-        Ok(n) => HttpResponse::Accepted().json(serde_json::json!({
-            "indexed": n,
-            "status": "succeeded"
-        })),
+        Ok(n) => {
+            state.search.invalidate_collection(&uid);
+            HttpResponse::Accepted().json(serde_json::json!({
+                "indexed": n,
+                "status": "succeeded"
+            }))
+        }
         Err(e) => e.error_response(),
     }
 }
@@ -97,7 +100,10 @@ pub async fn update_documents(
         })
         .collect();
     match state.documents.add_or_update(&uid, docs).await {
-        Ok(n) => HttpResponse::Accepted().json(serde_json::json!({ "indexed": n })),
+        Ok(n) => {
+            state.search.invalidate_collection(&uid);
+            HttpResponse::Accepted().json(serde_json::json!({ "indexed": n }))
+        }
         Err(e) => e.error_response(),
     }
 }
@@ -212,7 +218,10 @@ pub async fn delete_document(
     let (uid_str, id) = path.into_inner();
     let uid = CollectionId::new(uid_str);
     match state.documents.delete(&uid, &DocumentId::new(id)).await {
-        Ok(_) => HttpResponse::Accepted().json(serde_json::json!({ "status": "succeeded" })),
+        Ok(_) => {
+            state.search.invalidate_collection(&uid);
+            HttpResponse::Accepted().json(serde_json::json!({ "status": "succeeded" }))
+        }
         Err(e) => e.error_response(),
     }
 }
@@ -234,7 +243,10 @@ pub async fn delete_all_documents(
 ) -> HttpResponse {
     let uid = CollectionId::new(path.into_inner());
     match state.documents.delete_all(&uid).await {
-        Ok(_) => HttpResponse::Accepted().json(serde_json::json!({ "status": "succeeded" })),
+        Ok(_) => {
+            state.search.invalidate_collection(&uid);
+            HttpResponse::Accepted().json(serde_json::json!({ "status": "succeeded" }))
+        }
         Err(e) => e.error_response(),
     }
 }
@@ -264,7 +276,131 @@ pub async fn delete_batch(
         .map(DocumentId::new)
         .collect();
     match state.documents.delete_many(&uid, &ids).await {
-        Ok(n) => HttpResponse::Accepted().json(serde_json::json!({ "deleted": n })),
+        Ok(n) => {
+            state.search.invalidate_collection(&uid);
+            HttpResponse::Accepted().json(serde_json::json!({ "deleted": n }))
+        }
         Err(e) => e.error_response(),
+    }
+}
+
+/// Export format.
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum ExportFormat {
+    /// JSON Lines — one document per line.
+    Ndjson,
+    /// JSON array.
+    Json,
+    /// CSV (best-effort, no nested fields).
+    Csv,
+}
+
+impl ExportFormat {
+    fn content_type(&self) -> &'static str {
+        match self {
+            Self::Ndjson => "application/x-ndjson",
+            Self::Json => "application/json",
+            Self::Csv => "text/csv",
+        }
+    }
+}
+
+/// Export query.
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
+pub struct ExportQuery {
+    /// Output format. Defaults to `ndjson`.
+    pub format: Option<ExportFormat>,
+    /// Filter expression (same syntax as search).
+    pub filter: Option<String>,
+}
+
+/// Exports all documents in a collection in the chosen format.
+#[utoipa::path(
+    get,
+    path = "/api/v1/collections/{uid}/documents/export",
+    params(
+        ("uid" = String, Path,),
+        ("format" = Option<String>, Query,),
+        ("filter" = Option<String>, Query,)
+    ),
+    responses(
+        (status = 200, description = "Document dump"),
+        (status = 404, description = "Collection not found")
+    ),
+    tag = "documents"
+)]
+#[get("/collections/{uid}/documents/export")]
+pub async fn export_documents(
+    state: web::Data<AppState>,
+    path: web::Path<String>,
+    query: web::Query<ExportQuery>,
+) -> HttpResponse {
+    let uid = CollectionId::new(path.into_inner());
+    if state.collections.get(&uid).is_none() {
+        return AppError::not_found(format!("collection '{uid}' not found")).error_response();
+    }
+    let docs = match state.documents.list(&uid, 0, usize::MAX).await {
+        Ok(d) => d,
+        Err(e) => return e.error_response(),
+    };
+    let format = query.format.clone().unwrap_or(ExportFormat::Ndjson);
+    let body = match format {
+        ExportFormat::Ndjson => docs
+            .iter()
+            .map(|d| serde_json::to_string(d).unwrap_or_default())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        ExportFormat::Json => serde_json::to_string_pretty(&docs).unwrap_or_default(),
+        ExportFormat::Csv => docs_to_csv(&docs),
+    };
+    HttpResponse::Ok()
+        .content_type(format.content_type())
+        .body(body)
+}
+
+fn docs_to_csv(docs: &[models::Document]) -> String {
+    if docs.is_empty() {
+        return String::new();
+    }
+    let mut header: Vec<String> = Vec::new();
+    for d in docs {
+        for k in d.keys() {
+            if !header.contains(k) {
+                header.push(k.clone());
+            }
+        }
+    }
+    let mut out = String::new();
+    let header_row: Vec<String> = header.iter().map(|h| csv_field(h)).collect();
+    out.push_str(&header_row.join(","));
+    out.push('\n');
+    for d in docs {
+        let row: Vec<String> = header
+            .iter()
+            .map(|k| d.get(k).map(csv_value).unwrap_or_default())
+            .collect();
+        out.push_str(&row.join(","));
+        out.push('\n');
+    }
+    out
+}
+
+fn csv_field(s: &str) -> String {
+    if s.contains(',') || s.contains('"') || s.contains('\n') {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
+    }
+}
+
+fn csv_value(v: &Value) -> String {
+    match v {
+        Value::String(s) => csv_field(s),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Null => String::new(),
+        Value::Array(a) => csv_field(&format!("{a:?}")),
+        Value::Object(o) => csv_field(&format!("{o:?}")),
     }
 }

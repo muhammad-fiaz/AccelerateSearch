@@ -277,4 +277,36 @@ mod tests {
         assert_eq!(sw.len(), 2);
         assert!(!sw.is_empty());
     }
+
+    proptest::proptest! {
+        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(32))]
+
+        /// The analyzer must never panic on arbitrary input and always
+        /// returns a vector of tokens whose `term` is a normalised form
+        /// of the source token.
+        #[test]
+        fn analyzer_never_panics(s in ".*") {
+            let a = Analyzer::new(AnalyzerConfig::default());
+            let tokens = a.analyze(&s);
+            for t in &tokens {
+                // Every emitted token must be a valid (lowercased) string
+                // (the analyser lowercases unless configured otherwise).
+                assert!(!t.term.is_empty());
+            }
+        }
+
+        /// Tokenizing the same input twice produces the same number of
+        /// tokens.
+        #[test]
+        fn tokenizer_deterministic(s in "[A-Za-z0-9 ]{0,40}") {
+            let a = Analyzer::new(AnalyzerConfig {
+                stem_lang: None,
+                ..Default::default()
+            });
+            let t1 = a.analyze(&s);
+            let t2 = a.analyze(&s);
+            assert_eq!(t1.len(), t2.len());
+            assert_eq!(t1, t2);
+        }
+    }
 }

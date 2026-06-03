@@ -34,7 +34,11 @@ pub async fn search(
         return AppError::not_found(format!("collection '{uid}' not found")).error_response();
     }
     let sw = Stopwatch::new();
-    let result = state.search.search(&uid, body.into_inner()).await;
+    let ruleset = state.rules.get(&uid);
+    let result = state
+        .search
+        .search_with_rules(&uid, body.into_inner(), ruleset)
+        .await;
     SEARCH_REQUESTS_TOTAL
         .with_label_values(&[uid.as_str()])
         .inc();
@@ -138,6 +142,73 @@ pub struct MultiSearchResultEntry {
     /// Search response.
     #[serde(flatten)]
     pub response: SearchResponse,
+}
+
+/// Term suggestion entry.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct TermSuggestion {
+    /// The suggested term.
+    pub term: String,
+    /// Total occurrences of the term in the collection.
+    pub total_term_freq: u64,
+}
+
+/// Autocomplete / term-prefix response.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct AutocompleteResponse {
+    /// Suggestions matching the prefix.
+    pub suggestions: Vec<TermSuggestion>,
+}
+
+/// Autocomplete query parameters.
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
+pub struct AutocompleteQuery {
+    /// Prefix to match.
+    pub q: Option<String>,
+    /// Maximum number of suggestions to return.
+    pub limit: Option<usize>,
+}
+
+/// Returns autocomplete suggestions backed by the FST term dictionary.
+#[utoipa::path(
+    get,
+    path = "/api/v1/collections/{uid}/autocomplete",
+    params(
+        ("uid" = String, Path,),
+        ("q" = Option<String>, Query,),
+        ("limit" = Option<usize>, Query,)
+    ),
+    responses(
+        (status = 200, description = "Suggestions", body = AutocompleteResponse),
+        (status = 404, description = "Collection not found")
+    ),
+    tag = "search"
+)]
+#[get("/collections/{uid}/autocomplete")]
+pub async fn autocomplete(
+    state: web::Data<AppState>,
+    path: web::Path<String>,
+    query: web::Query<AutocompleteQuery>,
+) -> HttpResponse {
+    let uid = CollectionId::new(path.into_inner());
+    if state.collections.get(&uid).is_none() {
+        return AppError::not_found(format!("collection '{uid}' not found")).error_response();
+    }
+    let prefix = query.q.clone().unwrap_or_default();
+    let limit = query.limit.unwrap_or(10).min(100);
+    match state.search.term_prefix(&uid, &prefix, limit) {
+        Ok(entries) => {
+            let suggestions = entries
+                .into_iter()
+                .map(|(term, total_term_freq)| TermSuggestion {
+                    term,
+                    total_term_freq,
+                })
+                .collect();
+            HttpResponse::Ok().json(AutocompleteResponse { suggestions })
+        }
+        Err(e) => e.error_response(),
+    }
 }
 
 /// Executes a search across multiple collections.

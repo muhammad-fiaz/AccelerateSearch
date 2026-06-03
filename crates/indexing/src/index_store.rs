@@ -120,7 +120,15 @@ impl IndexStore {
         // We use a blocking read because loading happens on demand. The
         // storage backend is fast and the lock is held only briefly.
         if let Some(record) = self.try_load_blocking(collection)? {
-            let index: InvertedIndex = serde_json::from_value(record.index)?;
+            let mut index: InvertedIndex = serde_json::from_value(record.index)?;
+            // Term dicts are not persisted (they can be rebuilt cheaply from
+            // the term map). Rebuild here so the first search hits the
+            // FST-backed path.
+            if index.terms.is_empty() {
+                index.term_dict = None;
+            } else {
+                index.rebuild_term_dict();
+            }
             return Ok(index);
         }
         Ok(InvertedIndex::new())

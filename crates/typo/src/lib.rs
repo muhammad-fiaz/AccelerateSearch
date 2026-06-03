@@ -120,7 +120,7 @@ pub fn is_prefix(query: &str, candidate: &str) -> bool {
 
 /// Iterator over candidate strings within `max_distance` Damerau-Levenshtein
 /// edits of `term`, restricted to prefix-style candidates of the same length.
-/// Used by [`crate::apply_typo`] (in the search crate) to inject typo
+/// Used by `crate::apply_typo` (in the `search` crate) to inject typo
 /// corrections for the last query token.
 pub fn iter_prefix_candidates<'a>(
     term: &'a str,
