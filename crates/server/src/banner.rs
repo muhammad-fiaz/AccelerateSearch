@@ -30,12 +30,7 @@ pub fn render(
         let padding = width.saturating_sub(vis_len);
         let left_pad = padding / 2;
         let right_pad = padding - left_pad;
-        format!(
-            "|{}{}{}|",
-            " ".repeat(left_pad),
-            s,
-            " ".repeat(right_pad)
-        )
+        format!("|{}{}{}|", " ".repeat(left_pad), s, " ".repeat(right_pad))
     };
 
     let top = format!("+{}+", hline);
@@ -90,7 +85,10 @@ pub fn render(
                     "{}|{}{}{}{}|{}\n",
                     cyan_bold, white, blue, inner, white, reset
                 ));
-            } else if line.contains("http://") || line.contains("github.com") || line.contains("Documentation") {
+            } else if line.contains("http://")
+                || line.contains("github.com")
+                || line.contains("Documentation")
+            {
                 colored.push_str(&format!(
                     "{}|{}{}{}{}{}|{}\n",
                     cyan_bold, white, cyan, underline, inner, white, reset
@@ -116,7 +114,10 @@ mod tests {
     fn banner_contains_both_words() {
         let banner = render(false, "0.0.0", "localhost", 7700, "development", "./data");
         let upper: String = banner.chars().filter(|c| c.is_ascii_alphabetic()).collect();
-        assert!(upper.contains("ACCELERATE"), "banner should contain ACCELERATE");
+        assert!(
+            upper.contains("ACCELERATE"),
+            "banner should contain ACCELERATE"
+        );
         assert!(upper.contains("SEARCH"), "banner should contain SEARCH");
     }
 

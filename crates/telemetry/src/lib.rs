@@ -127,8 +127,7 @@ fn init_pretty(cfg: &LoggingConfig, env_filter: EnvFilter) -> AppResult<Telemetr
             cfg.dir.display()
         ))
     })?;
-    let file_appender =
-        tracing_appender::rolling::daily(&cfg.dir, format!("-{}", cfg.file_prefix));
+    let file_appender = tracing_appender::rolling::daily(&cfg.dir, format!("-{}", cfg.file_prefix));
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
     let file_layer = tracing_subscriber::fmt::layer()
         .with_target(true)
@@ -158,8 +157,7 @@ fn init_json(cfg: &LoggingConfig, env_filter: EnvFilter) -> AppResult<TelemetryG
             cfg.dir.display()
         ))
     })?;
-    let file_appender =
-        tracing_appender::rolling::daily(&cfg.dir, format!("-{}", cfg.file_prefix));
+    let file_appender = tracing_appender::rolling::daily(&cfg.dir, format!("-{}", cfg.file_prefix));
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
     let json_layer = tracing_subscriber::fmt::layer()
         .json()

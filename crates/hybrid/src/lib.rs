@@ -58,7 +58,10 @@ pub fn normalize_scores(ranked: &mut [Ranked]) {
     if ranked.is_empty() {
         return;
     }
-    let max_score = ranked.iter().map(|r| r.score).fold(f64::NEG_INFINITY, f64::max);
+    let max_score = ranked
+        .iter()
+        .map(|r| r.score)
+        .fold(f64::NEG_INFINITY, f64::max);
     let min_score = ranked.iter().map(|r| r.score).fold(f64::INFINITY, f64::min);
     let range = max_score - min_score;
     if range > f64::EPSILON {

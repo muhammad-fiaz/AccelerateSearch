@@ -390,11 +390,10 @@ mod tests {
             let va = a.document.get("age").unwrap_or(&Value::Null);
             let vb = b.document.get("age").unwrap_or(&Value::Null);
             let ord = match (va, vb) {
-                (Value::Number(x), Value::Number(y)) => {
-                    x.as_f64()
-                        .partial_cmp(&y.as_f64())
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                }
+                (Value::Number(x), Value::Number(y)) => x
+                    .as_f64()
+                    .partial_cmp(&y.as_f64())
+                    .unwrap_or(std::cmp::Ordering::Equal),
                 _ => std::cmp::Ordering::Equal,
             };
             ord.reverse()
