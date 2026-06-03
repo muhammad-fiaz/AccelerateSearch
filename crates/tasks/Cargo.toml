@@ -1,0 +1,28 @@
+[package]
+name = "tasks"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Async task queue for AccelerateSearch"
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+parking_lot.workspace = true
+dashmap.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+errors.workspace = true
+models.workspace = true
+storage.workspace = true
+utils.workspace = true
+accelerate-metrics.workspace = true
+
+[lints]
+workspace = true

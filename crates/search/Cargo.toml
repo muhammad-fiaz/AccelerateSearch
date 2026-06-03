@@ -1,0 +1,38 @@
+[package]
+name = "search"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Query parsing, planning, and BM25-based search for AccelerateSearch"
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+parking_lot.workspace = true
+dashmap.workspace = true
+once_cell.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+errors.workspace = true
+models.workspace = true
+storage.workspace = true
+utils.workspace = true
+indexing.workspace = true
+typo.workspace = true
+synonyms.workspace = true
+filters.workspace = true
+facets.workspace = true
+highlighting.workspace = true
+config-crate.workspace = true
+utoipa.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[lints]
+workspace = true

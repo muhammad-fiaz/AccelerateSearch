@@ -1,0 +1,112 @@
+# Build artifacts
+/target
+**/*.rs.bk
+*.pdb
+*.d
+*.o
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Data directories
+/data
+/data/*
+!/data/.gitkeep
+
+# Log files
+/logs
+/logs/*
+!/logs/.gitkeep
+
+# Snapshot archives
+/snapshots
+/snapshots/*
+!/snapshots/.gitkeep
+
+# Benchmark results
+/benchmark-result.d
+/benchmark-result.d/*
+!/benchmark-result.d/.gitkeep
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+
+# Cargo
+Cargo.lock
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.backup.*
+
+# Database files
+*.redb
+*.redb-journal
+*.redb-wal
+
+# TLS certificates (NEVER commit these)
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+
+# Cloud provider files
+*.tfstate
+*.tfstate.backup
+.terraform/
+*.tfvars
+credentials.json
+service-account*.json
+
+# Docker
+docker-compose.override.yml
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Node.js (for documentation generation)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Python (for tooling)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Editor configs
+*.code-workspace
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json

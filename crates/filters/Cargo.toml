@@ -1,0 +1,20 @@
+[package]
+name = "filters"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Filter expression parser and evaluator for AccelerateSearch"
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+errors.workspace = true
+models.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

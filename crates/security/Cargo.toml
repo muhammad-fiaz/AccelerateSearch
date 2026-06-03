@@ -1,0 +1,30 @@
+[package]
+name = "security"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Rate limiting, security headers, and audit logging for AccelerateSearch"
+publish = false
+
+[dependencies]
+actix-web.workspace = true
+actix-service.workspace = true
+governor.workspace = true
+nonzero_ext.workspace = true
+parking_lot.workspace = true
+dashmap.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+errors.workspace = true
+models.workspace = true
+utils.workspace = true
+config-crate.workspace = true
+futures-util.workspace = true
+
+[lints]
+workspace = true

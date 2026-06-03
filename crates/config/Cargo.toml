@@ -1,0 +1,27 @@
+[package]
+name = "config-crate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "TOML configuration loader and CLI parser for AccelerateSearch"
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+config.workspace = true
+clap.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+serde_with.workspace = true
+utils.workspace = true
+errors.workspace = true
+validator.workspace = true
+tracing.workspace = true
+strsim.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,21 @@
+[package]
+name = "replication"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Replication (future) for AccelerateSearch"
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+async-trait.workspace = true
+errors.workspace = true
+models.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

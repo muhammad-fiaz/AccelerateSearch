@@ -1,0 +1,28 @@
+[package]
+name = "documents"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Document ingestion and retrieval for AccelerateSearch"
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+errors.workspace = true
+models.workspace = true
+storage.workspace = true
+utils.workspace = true
+indexing.workspace = true
+collections.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,46 @@
+[package]
+name = "server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "HTTP server lifecycle for AccelerateSearch"
+publish = false
+
+[dependencies]
+actix-web.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-actix-web.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+errors.workspace = true
+models.workspace = true
+utils.workspace = true
+config-crate.workspace = true
+telemetry.workspace = true
+storage.workspace = true
+auth.workspace = true
+security.workspace = true
+accelerate-metrics.workspace = true
+collections.workspace = true
+documents.workspace = true
+indexing.workspace = true
+search.workspace = true
+vector.workspace = true
+tasks.workspace = true
+snapshots.workspace = true
+scheduler.workspace = true
+api.workspace = true
+reqwest.workspace = true
+utoipa.workspace = true
+utoipa-swagger-ui.workspace = true
+async-trait.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,19 @@
+[package]
+name = "typo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Typo tolerance and fuzzy matching for AccelerateSearch"
+publish = false
+
+[dependencies]
+strsim.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+errors.workspace = true
+models.workspace = true
+
+[lints]
+workspace = true

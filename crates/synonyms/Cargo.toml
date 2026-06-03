@@ -1,0 +1,18 @@
+[package]
+name = "synonyms"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Synonym management and resolution for AccelerateSearch"
+publish = false
+
+[dependencies]
+serde.workspace = true
+errors.workspace = true
+models.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

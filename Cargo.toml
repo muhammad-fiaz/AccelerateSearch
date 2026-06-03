@@ -1,0 +1,256 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/api",
+    "crates/server",
+    "crates/config",
+    "crates/auth",
+    "crates/collections",
+    "crates/documents",
+    "crates/indexing",
+    "crates/search",
+    "crates/filters",
+    "crates/facets",
+    "crates/typo",
+    "crates/synonyms",
+    "crates/highlighting",
+    "crates/vector",
+    "crates/hybrid",
+    "crates/storage",
+    "crates/cache",
+    "crates/tasks",
+    "crates/scheduler",
+    "crates/snapshots",
+    "crates/metrics",
+    "crates/telemetry",
+    "crates/security",
+    "crates/cluster",
+    "crates/replication",
+    "crates/sharding",
+    "crates/errors",
+    "crates/models",
+    "crates/validation",
+    "crates/utils",
+]
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unused_must_use = "deny"
+dead_code = "deny"
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "Apache-2.0"
+authors = ["Muhammad Fiaz <contact@muhammadfiaz.com>"]
+repository = "https://github.com/muhammad-fiaz/AccelerateSearch"
+homepage = "https://muhammadfiaz.github.io"
+description = "AccelerateSearch - A production-grade, modern, open-source self-hosted search engine written in Rust."
+keywords = ["search", "search-engine", "full-text-search", "vector-search", "bm25"]
+categories = ["database", "api-bindings", "asynchronous"]
+readme = "README.md"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+futures = "0.3"
+futures-util = "0.3"
+async-trait = "0.1"
+
+# HTTP server / client
+actix-web = "4"
+actix-rt = "2"
+actix-cors = "0.7"
+actix-service = "2"
+tracing-actix-web = "0.7"
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
+http = "1"
+
+# OpenAPI
+utoipa = { version = "5", features = ["actix_extras", "uuid", "chrono"] }
+utoipa-swagger-ui = { version = "9", features = ["actix-web"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_with = "3"
+toml = "1.1"
+serde_yaml = "0.9"
+config = { version = "0.15", default-features = false, features = ["toml"] }
+
+# CLI
+clap = { version = "4", features = ["derive", "env", "string"] }
+
+# Errors
+thiserror = "2"
+anyhow = "1"
+
+# Auth / hashing
+argon2 = "0.5"
+sha2 = "0.11"
+blake3 = "1"
+rand = { version = "0.10", features = ["std_rng", "thread_rng"] }
+rand_core = "0.10"
+hex = "0.4"
+jsonwebtoken = "10"
+
+# Concurrency
+dashmap = "6"
+parking_lot = "0.12"
+arc-swap = "1"
+crossbeam-channel = "0.5"
+
+# CPU parallelism
+rayon = "1"
+
+# Storage
+redb = "4"
+
+# Logging / Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt", "registry"] }
+tracing-appender = "0.2"
+
+# Metrics
+prometheus = "0.14"
+
+# Rate limiting
+governor = "0.10"
+nonzero_ext = "0.3"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+time = { version = "0.3", features = ["serde", "formatting", "parsing", "macros"] }
+
+# IDs
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+
+# Validation
+validator = { version = "0.20", features = ["derive"] }
+
+# Text processing
+unicode-normalization = "0.1"
+unicode-segmentation = "1"
+regex = "1"
+aho-corasick = "1"
+once_cell = "1"
+
+# Stemming
+rust-stemmers = "1"
+
+# FST
+fst = "0.4"
+
+# String distance
+strsim = "0.11"
+
+# Vector index
+hnsw_rs = "0.3"
+
+# Compression
+zstd = "0.13"
+flate2 = "1"
+tar = "0.4"
+walkdir = "2"
+
+# Benchmark
+criterion = { version = "0.8", features = ["html_reports"] }
+
+# Property tests
+proptest = "1"
+
+# Temp files
+tempfile = "3"
+
+# Cron
+cron = "0.16"
+
+# Byte units
+bytes = "1"
+
+# Mem allocators
+mimalloc = { version = "0.1", default-features = false }
+
+# Internal
+errors = { path = "crates/errors" }
+utils = { path = "crates/utils" }
+models = { path = "crates/models" }
+validation = { path = "crates/validation" }
+telemetry = { path = "crates/telemetry" }
+storage = { path = "crates/storage" }
+config-crate = { path = "crates/config" }
+auth = { path = "crates/auth" }
+security = { path = "crates/security" }
+accelerate-metrics = { path = "crates/metrics", package = "metrics" }
+cache = { path = "crates/cache" }
+indexing = { path = "crates/indexing" }
+typo = { path = "crates/typo" }
+synonyms = { path = "crates/synonyms" }
+filters = { path = "crates/filters" }
+facets = { path = "crates/facets" }
+highlighting = { path = "crates/highlighting" }
+search = { path = "crates/search" }
+vector = { path = "crates/vector" }
+hybrid = { path = "crates/hybrid" }
+collections = { path = "crates/collections" }
+documents = { path = "crates/documents" }
+tasks = { path = "crates/tasks" }
+scheduler = { path = "crates/scheduler" }
+snapshots = { path = "crates/snapshots" }
+cluster = { path = "crates/cluster" }
+replication = { path = "crates/replication" }
+sharding = { path = "crates/sharding" }
+api = { path = "crates/api" }
+server = { path = "crates/server" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+opt-level = 3
+strip = "symbols"
+debug = false
+panic = "abort"
+
+[profile.dev]
+opt-level = 0
+debug = true
+incremental = true
+
+[profile.bench]
+opt-level = 3
+lto = "thin"
+debug = false
+
+[profile.test]
+opt-level = 0
+debug = true
+
+[[bin]]
+name = "accelerate"
+path = "src/main.rs"
+
+[package]
+name = "accelerate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description.workspace = true
+readme.workspace = true
+publish = false
+
+[dependencies]
+tokio.workspace = true
+anyhow.workspace = true
+server.workspace = true
+config-crate.workspace = true
+errors.workspace = true
+mimalloc = { workspace = true, optional = true }
+
+[features]
+default = []
+mimalloc = ["dep:mimalloc"]
+tls = []

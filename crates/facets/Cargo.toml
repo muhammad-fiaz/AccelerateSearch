@@ -1,0 +1,19 @@
+[package]
+name = "facets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Faceted search and aggregations for AccelerateSearch"
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+errors.workspace = true
+models.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,38 @@
+[package]
+name = "auth"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Authentication, API keys, and JWT for AccelerateSearch"
+publish = false
+
+[dependencies]
+actix-web.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+argon2.workspace = true
+sha2.workspace = true
+blake3.workspace = true
+hex.workspace = true
+rand.workspace = true
+jsonwebtoken.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+parking_lot.workspace = true
+dashmap.workspace = true
+futures-util.workspace = true
+errors.workspace = true
+models.workspace = true
+storage.workspace = true
+utils.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[lints]
+workspace = true

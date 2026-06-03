@@ -1,0 +1,27 @@
+[package]
+name = "vector"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Vector search and embedding management for AccelerateSearch"
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+errors.workspace = true
+models.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+parking_lot.workspace = true
+dashmap.workspace = true
+rand.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[lints]
+workspace = true

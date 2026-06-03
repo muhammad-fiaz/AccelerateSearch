@@ -1,0 +1,20 @@
+[package]
+name = "models"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Shared domain models and DTOs for AccelerateSearch"
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+utoipa.workspace = true
+
+[lints]
+workspace = true

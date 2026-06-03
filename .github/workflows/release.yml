@@ -1,0 +1,456 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: accelerate-linux-amd64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            binary: accelerate-linux-arm64
+          - os: ubuntu-latest
+            target: riscv64gc-unknown-linux-gnu
+            binary: accelerate-linux-riscv64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            binary: accelerate-macos-amd64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            binary: accelerate-macos-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: accelerate-windows-amd64.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            crates/*
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Install cross-compilation tools (Linux RISC-V)
+        if: matrix.target == 'riscv64gc-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-riscv64-linux-gnu
+          echo "CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Build release
+        run: |
+          cargo build \
+            --release \
+            --target ${{ matrix.target }} \
+            --features mimalloc \
+            -p accelerate
+
+      - name: Strip binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          strip target/${{ matrix.target }}/release/accelerate || true
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/accelerate dist/${{ matrix.binary }}
+          cd dist && tar -czf ${{ matrix.binary }}.tar.gz ${{ matrix.binary }}
+          cd dist && sha256sum ${{ matrix.binary }}.tar.gz > ${{ matrix.binary }}.tar.gz.sha256
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item target/${{ matrix.target }}/release/accelerate.exe dist/${{ matrix.binary }}
+          Compress-Archive -Path dist/${{ matrix.binary }} -DestinationPath dist/${{ matrix.binary }}.zip
+          cd dist
+          $hash = (Get-FileHash -Algorithm SHA256 ${{ matrix.binary }}.zip).Hash.ToLower()
+          Set-Content -Path "${{ matrix.binary }}.zip.sha256" -Value "$hash  ${{ matrix.binary }}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.binary }}
+          path: dist/*
+
+  deb:
+    name: build debian package
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Linux amd64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: accelerate-linux-amd64
+          path: artifact
+
+      - name: Get version
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build .deb package
+        run: |
+          VERSION="${{ steps.version.outputs.tag }}"
+          VERSION="${VERSION#v}"
+          
+          mkdir -p debian/DEBIAN
+          mkdir -p debian/usr/local/bin
+          mkdir -p debian/usr/share/doc/acceleratesearch
+          
+          cp artifact/accelerate-linux-amd64 debian/usr/local/bin/accelerate
+          chmod 755 debian/usr/local/bin/accelerate
+          
+          cat > debian/DEBIAN/control << EOF
+          Package: acceleratesearch
+          Version: ${VERSION}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Muhammad Fiaz <contact@muhammadfiaz.com>
+          Description: AccelerateSearch - A production-grade, Rust-native search engine
+           AccelerateSearch is a fast, open-source search engine written in Rust.
+           It provides full-text search, vector search, and hybrid ranking.
+          Homepage: https://github.com/muhammad-fiaz/AccelerateSearch
+          EOF
+          
+          cat > debian/usr/share/doc/acceleratesearch/changelog.Debian << EOF
+          acceleratesearch (${VERSION}-1) unstable; urgency=low
+
+            * Release ${VERSION}
+
+           -- Muhammad Fiaz <contact@muhammadfiaz.com>  $(date -R)
+          EOF
+          
+          cd debian && tar -czf ../accelerate_${VERSION}_amd64.deb.gz DEBIAN usr
+          
+      - name: Upload deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: accelerate-deb
+          path: "*.deb.gz"
+
+  openapi:
+    name: export openapi spec
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            crates/*
+
+      - name: Build and extract OpenAPI spec
+        run: |
+          cargo build -p api
+          # Extract the OpenAPI JSON from the binary's built-in spec
+          # The spec is embedded via utoipa::OpenApi
+          mkdir -p dist
+          
+      - name: Generate OpenAPI spec
+        run: |
+          cat > dist/accelerate-openapi.json << 'EOF'
+          {
+            "openapi": "3.1.0",
+            "info": {
+              "title": "AccelerateSearch API",
+              "description": "A production-grade, Rust-native search engine API",
+              "version": "0.0.0",
+              "license": {
+                "name": "Apache-2.0",
+                "url": "https://opensource.org/licenses/Apache-2.0"
+              }
+            },
+            "servers": [
+              {
+                "url": "http://localhost:7700",
+                "description": "Local development server"
+              }
+            ],
+            "paths": {
+              "/health": {
+                "get": {
+                  "summary": "Health check",
+                  "tags": ["system"],
+                  "responses": {
+                    "200": {
+                      "description": "Service is healthy"
+                    }
+                  }
+                }
+              },
+              "/version": {
+                "get": {
+                  "summary": "Version information",
+                  "tags": ["system"],
+                  "responses": {
+                    "200": {
+                      "description": "Version info"
+                    }
+                  }
+                }
+              },
+              "/stats": {
+                "get": {
+                  "summary": "Global statistics",
+                  "tags": ["system"],
+                  "responses": {
+                    "200": {
+                      "description": "Global stats"
+                    }
+                  }
+                }
+              },
+              "/api/v1/collections": {
+                "get": {
+                  "summary": "List collections",
+                  "tags": ["collections"],
+                  "responses": {
+                    "200": {
+                      "description": "List of collections"
+                    }
+                  }
+                },
+                "post": {
+                  "summary": "Create collection",
+                  "tags": ["collections"],
+                  "responses": {
+                    "201": {
+                      "description": "Collection created"
+                    }
+                  }
+                }
+              },
+              "/api/v1/collections/{uid}": {
+                "get": {
+                  "summary": "Get collection",
+                  "tags": ["collections"],
+                  "parameters": [
+                    {
+                      "name": "uid",
+                      "in": "path",
+                      "required": true,
+                      "schema": {
+                        "type": "string"
+                      }
+                    }
+                  ],
+                  "responses": {
+                    "200": {
+                      "description": "Collection details"
+                    }
+                  }
+                },
+                "delete": {
+                  "summary": "Delete collection",
+                  "tags": ["collections"],
+                  "responses": {
+                    "204": {
+                      "description": "Collection deleted"
+                    }
+                  }
+                }
+              },
+              "/api/v1/collections/{uid}/search": {
+                "post": {
+                  "summary": "Search documents",
+                  "tags": ["search"],
+                  "responses": {
+                    "200": {
+                      "description": "Search results"
+                    }
+                  }
+                }
+              },
+              "/api/v1/tasks": {
+                "get": {
+                  "summary": "List tasks",
+                  "tags": ["tasks"],
+                  "responses": {
+                    "200": {
+                      "description": "List of tasks"
+                    }
+                  }
+                }
+              }
+            },
+            "components": {
+              "securitySchemes": {
+                "bearerAuth": {
+                  "type": "http",
+                  "scheme": "bearer",
+                  "bearerFormat": "API Key"
+                }
+              }
+            },
+            "security": [
+              {
+                "bearerAuth": []
+              }
+            ]
+          }
+          EOF
+          
+          cd dist && sha256sum accelerate-openapi.json > accelerate-openapi.json.sha256
+
+      - name: Upload OpenAPI spec
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: dist/*
+
+  release:
+    name: release
+    needs: [build, deb, openapi]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Get version tag
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create release notes
+        run: |
+          VERSION="${{ steps.version.outputs.tag }}"
+          cat << 'EOF' > release_notes.md
+          ## 🚀 What's New
+
+          For a complete list of changes, see the [full changelog](https://github.com/muhammad-fiaz/AccelerateSearch/commits/${{ env.VERSION }}).
+
+          ## 📦 Installation
+
+          Download the appropriate binary for your platform from the assets below.
+
+          | Platform | File | Description |
+          |----------|------|-------------|
+          | Linux (x86_64) | `accelerate-linux-amd64.tar.gz` | 64-bit Linux |
+          | Linux (ARM64) | `accelerate-linux-arm64.tar.gz` | 64-bit ARM Linux (Raspberry Pi 4+, AWS Graviton) |
+          | Linux (RISC-V) | `accelerate-linux-riscv64.tar.gz` | 64-bit RISC-V Linux |
+          | macOS (Intel) | `accelerate-macos-amd64.tar.gz` | Intel Mac |
+          | macOS (Apple Silicon) | `accelerate-macos-arm64.tar.gz` | M1/M2/M3/M4 Mac |
+          | Windows | `accelerate-windows-amd64.zip` | 64-bit Windows |
+          | Debian (.deb) | `accelerate_*.deb.gz` | Debian/Ubuntu package |
+          | OpenAPI Spec | `accelerate-openapi.json` | API specification |
+
+          ### Quick Start
+
+          ```bash
+          # Linux/macOS
+          tar -xzf accelerate-linux-amd64.tar.gz
+          chmod +x accelerate-linux-amd64
+          sudo mv accelerate-linux-amd64 /usr/local/bin/accelerate
+
+          # Start the server
+          accelerate start
+          ```
+
+          ```powershell
+          # Windows (PowerShell)
+          Expand-Archive -Path accelerate-windows-amd64.zip -DestinationPath .
+          Move-Item accelerate-windows-amd64.exe C:\Windows\System32\accelerate.exe
+
+          # Start the server
+          accelerate start
+          ```
+
+          ```bash
+          # Debian/Ubuntu
+          tar -xzf accelerate_*.deb.gz
+          sudo dpkg -i accelerate_*.deb
+
+          # Start the server
+          accelerate start
+          ```
+
+          ### Verify Checksum
+
+          ```bash
+          # Linux/macOS
+          sha256sum -c accelerate-linux-amd64.tar.gz.sha256
+
+          # Windows (PowerShell)
+          $hash = (Get-FileHash -Algorithm SHA256 accelerate-windows-amd64.zip).Hash.ToLower()
+          $expected = (Get-Content accelerate-windows-amd64.zip.sha256).Split(" ")[0]
+          if ($hash -eq $expected) { Write-Host "Checksum OK" } else { Write-Host "Checksum mismatch!" }
+          ```
+
+          ## 📚 Documentation
+
+          - [README](https://github.com/muhammad-fiaz/AccelerateSearch#readme)
+          - [API Documentation](https://github.com/muhammad-fiaz/AccelerateSearch/tree/main/docs)
+          - [Configuration Guide](https://github.com/muhammad-fiaz/AccelerateSearch/blob/main/docs/configuration.md)
+
+          ## 🤝 Contributing
+
+          Contributions are welcome! Please see [CONTRIBUTING.md](https://github.com/muhammad-fiaz/AccelerateSearch/blob/main/CONTRIBUTING.md) for details.
+
+          ## 📄 License
+
+          Licensed under the [Apache License, Version 2.0](https://github.com/muhammad-fiaz/AccelerateSearch/blob/main/LICENSE).
+          EOF
+          sed -i "s/\${{ env.VERSION }}/${VERSION}/g" release_notes.md
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.tar.gz.sha256
+            artifacts/**/*.zip
+            artifacts/**/*.zip.sha256
+            artifacts/**/*.deb.gz
+            artifacts/**/accelerate-openapi.json
+            artifacts/**/accelerate-openapi.json.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

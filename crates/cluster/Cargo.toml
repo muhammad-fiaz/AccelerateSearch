@@ -1,0 +1,20 @@
+[package]
+name = "cluster"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Cluster topology (future) for AccelerateSearch"
+publish = false
+
+[dependencies]
+serde.workspace = true
+chrono.workspace = true
+errors.workspace = true
+models.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,27 @@
+[package]
+name = "storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Pluggable storage layer for AccelerateSearch (default: redb)"
+publish = false
+
+[dependencies]
+redb.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+errors.workspace = true
+utils.workspace = true
+models.workspace = true
+tracing.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,21 @@
+[package]
+name = "validation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Input validation for AccelerateSearch"
+publish = false
+
+[dependencies]
+validator.workspace = true
+thiserror.workspace = true
+errors.workspace = true
+models.workspace = true
+regex.workspace = true
+once_cell.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

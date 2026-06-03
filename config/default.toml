@@ -1,0 +1,342 @@
+# =============================================================================
+# AccelerateSearch — default configuration
+# =============================================================================
+# Edit any value below to override the built-in defaults. CLI flags take
+# precedence over environment variables, which take precedence over the
+# values in this file.
+# =============================================================================
+
+[server]
+# Bind address. Use "0.0.0.0" to listen on every interface, "127.0.0.1" to
+# restrict to the local machine, or "localhost" for local development.
+# For cloud deployments, use "0.0.0.0" to accept connections from any source.
+host = "localhost"
+
+# TCP port to listen on. Default is 7700 (Meilisearch-compatible port).
+port = 7700
+
+# Number of Actix worker threads. 0 means "auto" (= number of CPU cores).
+# For high-concurrency workloads, set this to 2x the number of CPU cores.
+workers = 0
+
+# Maximum simultaneous connections. Use 0 for unlimited (infinite) connections.
+# For production, set this to a reasonable limit based on your server capacity.
+# Examples:
+#   - Small instance (2 CPU, 4GB RAM): 5000
+#   - Medium instance (4 CPU, 8GB RAM): 10000
+#   - Large instance (8 CPU, 16GB RAM): 50000
+#   - Unlimited (cloud auto-scaling): 0
+max_connections = 0
+
+# HTTP keep-alive duration in seconds. Controls how long the server keeps
+# idle connections alive. Lower values free resources faster; higher values
+# reduce connection overhead for frequent clients.
+keep_alive = "75s"
+
+# Read timeout in seconds. Maximum time to wait for a complete request.
+# Increase for large file uploads or slow clients.
+read_timeout = "30s"
+
+# Write timeout in seconds. Maximum time to wait for a response to be sent.
+# Increase for large response bodies or slow clients.
+write_timeout = "30s"
+
+# Graceful shutdown timeout in seconds. How long to wait for in-flight
+# requests to complete before forcefully shutting down.
+shutdown_timeout = "10s"
+
+# Maximum HTTP request body size in bytes (default 100 MiB).
+# Set higher for bulk document imports. 104857600 = 100 MiB.
+max_body_size = 104857600
+
+# =============================================================================
+# API Documentation Configuration
+# =============================================================================
+# Configure Swagger UI and OpenAPI spec endpoints.
+[api_docs]
+# Enable the Swagger UI at /swagger-ui.
+# Disable to hide the interactive API documentation.
+swagger_ui_enabled = true
+
+# Enable the OpenAPI spec at /api-docs/openapi.json.
+# Disable to hide the API specification endpoint.
+openapi_enabled = true
+
+# =============================================================================
+# TLS/HTTPS Configuration
+# =============================================================================
+# Enable TLS for production deployments. Obtain certificates from Let's Encrypt
+# or your preferred CA. For cloud deployments behind a load balancer, you may
+# terminate TLS at the load balancer and keep this disabled.
+[server.tls]
+enabled = false
+cert_path = ""
+key_path = ""
+ca_cert_path = ""
+require_client_cert = false
+
+[data]
+# Directory in which the on-disk redb database is stored.
+# For cloud deployments, use a persistent volume or fast SSD storage.
+dir = "./data"
+
+# Environment: "development" or "production".
+# In production, a non-empty auth.master_key is required.
+# Affects logging verbosity, security defaults, and performance tuning.
+env = "development"
+
+[auth]
+# Master API key for admin access. In production, a non-empty value is required.
+# Generate a strong random key: openssl rand -hex 32
+# Can also be set via ACCELERATE_MASTER_KEY environment variable.
+master_key = ""
+
+# Set to true to explicitly disable authentication (dev mode only).
+# NEVER enable this in production without a reverse proxy handling auth.
+disable_auth = false
+
+[search]
+# Maximum number of facet values returned per field.
+max_values_per_facet = 100
+
+# Maximum total hits reported in a paginated response.
+pagination_max_total_hits = 1000
+
+# BM25 k1 parameter (term frequency saturation).
+# Higher values increase the importance of term frequency.
+bm25_k1 = 1.2
+
+# BM25 b parameter (length normalisation).
+# Higher values increase the importance of document length.
+bm25_b = 0.75
+
+# Default page size when not specified by the client.
+default_limit = 20
+
+# Maximum page size accepted from the client.
+max_limit = 1000
+
+[indexing]
+# Maximum documents per indexing batch.
+# Higher values use more memory but reduce I/O overhead.
+max_batch_size = 1000
+
+# Commit interval in milliseconds.
+# Lower values improve durability but reduce throughput.
+commit_interval_ms = 500
+
+# Parallelism for the indexing pipeline (0 = auto = num CPUs).
+# Set higher for bulk imports on multi-core systems.
+parallelism = 0
+
+# Apply language-aware stemming.
+stem = true
+
+# Remove stop words before indexing.
+remove_stop_words = true
+
+[vector]
+# Enable vector search at the platform level.
+enabled = false
+
+# Default embedding dimensions.
+dimensions = 384
+
+# Default similarity metric: cosine | dot | euclidean.
+similarity = "cosine"
+
+# HNSW M parameter (connections per node).
+# Higher values improve recall but increase memory usage.
+hnsw_m = 16
+
+# HNSW ef_construction parameter (search depth during indexing).
+# Higher values improve recall but slow down indexing.
+hnsw_ef_construction = 200
+
+# HNSW ef_search parameter (search depth during queries).
+# Higher values improve recall but slow down queries.
+hnsw_ef_search = 50
+
+# Quantization strategy: none | scalar | product | binary.
+# Reduces memory usage at the cost of some accuracy.
+quantization = "none"
+
+# Number of sub-spaces for product quantization.
+pq_m = 8
+
+# Number of centroids per sub-space for product quantization.
+pq_k = 256
+
+# Allow sparse vector embeddings (SPLADE-style).
+allow_sparse = true
+
+# Allow multi-vector embeddings (ColBERT-style).
+allow_multi = true
+
+# Optional external embedder URL for automatic embedding on ingest.
+embedder_url = ""
+
+# Optional embedder model name reported in telemetry.
+embedder_model = ""
+
+[logging]
+# Log level: trace | debug | info | warn | error.
+# Production recommendation: "info" or "warn"
+# Development recommendation: "debug" or "trace"
+level = "info"
+
+# Log format: pretty | json.
+# Production recommendation: "json" for structured logging
+# Development recommendation: "pretty" for readability
+format = "pretty"
+
+# Log directory. Ensure this path is writable and has sufficient disk space.
+# For cloud deployments, consider using a persistent volume or log aggregation.
+dir = "./logs"
+
+# Log file prefix. Log files will be named: {prefix}.{date}.log
+file_prefix = "accelerate"
+
+# Maximum number of retained log files.
+# Older files are automatically deleted. Set to 0 for unlimited.
+max_files = 7
+
+# Maximum size of a single log file in megabytes.
+# Set to 0 for unlimited. Files are rotated daily regardless of size.
+max_size_mb = 100
+
+# Auto-delete log files older than this many days.
+# Set to 0 to disable automatic cleanup.
+auto_delete_days = 30
+
+# Disable all console log output entirely.
+# Useful for running as a Windows service or in containerized environments.
+no_console = false
+
+# Disable the file log appender entirely.
+# Useful for debugging or when logs are handled by the platform.
+no_file = false
+
+# Suppress coloured output in the console.
+# Set to true when piping output to files or running in CI/CD.
+no_color = false
+
+# Silence all non-error output.
+# Only errors and warnings will be displayed.
+quiet = false
+
+[metrics]
+# Expose Prometheus metrics at /metrics.
+# Disable if not using Prometheus/Grafana monitoring.
+enabled = true
+
+# Metrics endpoint path.
+endpoint = "/metrics"
+
+[snapshots]
+# Snapshots directory. Ensure sufficient disk space for snapshot storage.
+dir = "./snapshots"
+
+# Cron schedule for automatic snapshot creation (UTC).
+# Format: "minute hour day-of-month month day-of-week"
+# Examples:
+#   "0 0 * * *" = daily at midnight
+#   "0 */6 * * *" = every 6 hours
+#   "0 0 * * 0" = weekly on Sunday
+schedule = "0 0 * * *"
+
+# Whether automatic snapshot creation is enabled.
+auto_create = false
+
+[updates]
+# Check for new versions on startup.
+# Disable in air-gapped environments or when using custom builds.
+check_enabled = true
+
+# Interval between version checks.
+check_interval = "24h"
+
+[rate_limit]
+# Whether rate limiting is enabled.
+# Disable for internal networks or when behind a reverse proxy with rate limiting.
+enabled = true
+
+# Permitted requests per second per client.
+# Adjust based on expected traffic patterns.
+requests_per_second = 100
+
+# Allowed burst size.
+# Allows short bursts above the steady-state rate.
+burst_size = 200
+
+[telemetry]
+# Enable distributed tracing.
+tracing_enabled = true
+
+# Service name for traces.
+# Used for identifying this service in distributed tracing systems.
+service_name = "accelerate"
+
+[cache]
+# Whether the search result cache is enabled.
+# Disable for write-heavy workloads or when using external caching.
+enabled = true
+
+# Maximum number of cached entries.
+# Higher values use more memory but improve cache hit rates.
+max_entries = 10000
+
+# Cache TTL in seconds.
+# Lower values improve freshness; higher values improve performance.
+ttl_seconds = 300
+
+# =============================================================================
+# CORS Configuration
+# =============================================================================
+# Configure Cross-Origin Resource Sharing for cloud deployments.
+# Required when the API is accessed from a different domain/port.
+[cors]
+# Whether CORS is enabled.
+enabled = true
+
+# Allowed origins (empty = all origins allowed).
+# For production, set specific origins for security.
+# Examples:
+#   ["https://myapp.com"]
+#   ["https://app.example.com", "https://admin.example.com"]
+#   [] = allow all origins (not recommended for production)
+allowed_origins = []
+
+# Allowed HTTP methods.
+allowed_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+
+# Allowed headers.
+allowed_headers = ["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"]
+
+# Allow credentials (cookies, authorization headers).
+# Required for authenticated cross-origin requests.
+allow_credentials = true
+
+# Max age for preflight cache in seconds.
+# Higher values reduce preflight request overhead.
+max_age = 3600
+
+# =============================================================================
+# Cloud Deployment Notes
+# =============================================================================
+# When deploying to cloud platforms (AWS, GCP, Azure, etc.):
+#
+# 1. Use a persistent volume for the data directory (./data)
+# 2. Use a persistent volume or external logging for logs (./logs)
+# 3. Set auth.master_key in production
+# 4. Consider using a load balancer for TLS termination
+# 5. Use environment variables for sensitive values:
+#    - ACCELERATE_MASTER_KEY
+#    - ACCELERATE_HOST
+#    - ACCELERATE_PORT
+#    - ACCELERATE_DATA_DIR
+# 6. Monitor with Prometheus metrics at /metrics
+# 7. Set up log aggregation (ELK, Datadog, CloudWatch, etc.)
+# 8. Configure rate limiting based on expected traffic
+# 9. Use snapshots for backup and disaster recovery
+# 10. Enable CORS only if needed for browser-based clients
