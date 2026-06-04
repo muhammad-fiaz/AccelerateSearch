@@ -6,6 +6,11 @@ AccelerateSearch combines the developer experience of Meilisearch with
 the analytical power of Elasticsearch, all in a single binary that
 runs on Linux, macOS, and Windows.
 
+> [!WARNING]
+> The project is in active development. APIs, on-disk formats,
+> configuration keys, and CLI flags may change between releases.
+> Pin a specific commit or release tag for stability.
+
 ## Features
 
 - **Blazing-fast full-text search** with BM25 ranking
@@ -43,6 +48,7 @@ crates/
   api/          REST handlers, DTOs, OpenAPI schema
   auth/         master key, API keys, tenant tokens
   cache/        LRU + TTL cache
+  collections/  collection metadata service
   config/       TOML config & validation
   documents/    document service
   filters/      filter expression parser & evaluator
@@ -55,6 +61,7 @@ crates/
   security/     rate limit, CORS, audit logger
   server/       HTTP lifecycle, banner
   storage/      StorageBackend trait + redb
+  synonyms/     synonym map storage and lookup
   tasks/        async task queue
   telemetry/    tracing-subscriber setup
   typo/         Damerau-Levenshtein
@@ -63,7 +70,7 @@ crates/
   vector/       embedding types + quantization
 config/         default.toml
 docs/           this mdbook source
-.github/        CI + release workflows
+.github/        CI + release + docs workflows
 ```
 
 ## Author

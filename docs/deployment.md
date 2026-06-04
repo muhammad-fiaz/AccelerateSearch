@@ -26,9 +26,10 @@ Set in `config/default.toml`:
 
 ```toml
 [server]
-bind = "0.0.0.0:7700"
+host = "0.0.0.0"
+port = 7700
 
-[tls]
+[server.tls]
 enabled = true
 cert_path = "./accelerate.local.pem"
 key_path = "./accelerate.local-key.pem"

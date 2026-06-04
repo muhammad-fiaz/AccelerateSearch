@@ -1,23 +1,22 @@
 # Rust API Reference
 
-The full Rust API documentation is generated with `cargo doc` and lives
-in the `target/doc/` directory of the workspace.
+The full Rust API documentation is generated with `cargo doc` and
+lives in the `target/doc/` directory of the workspace. It is
+regenerated on every push to `main` by the GitHub Actions docs
+workflow and published at:
+
+> <https://muhammad-fiaz.github.io/AccelerateSearch/rust-api/>
 
 ## Build locally
 
 ```bash
-cargo doc --no-deps --workspace --open
+cargo doc --no-deps --workspace --target-dir target
+# Optional: open in your default browser
+cargo doc --no-deps --workspace --target-dir target --open
 ```
 
-## Online
-
-When the project is deployed to GitHub Pages, the generated
-`cargo doc` HTML is published at:
-
-> <https://muhammad-fiaz.github.io/AccelerateSearch/rust-api/>
-
-The published HTML is regenerated on every push to `main` by the
-`docs` GitHub Actions workflow.
+`RUSTDOCFLAGS="-D warnings"` is set in the CI, so any doc warning
+fails the build.
 
 ## Crate index
 
@@ -28,12 +27,12 @@ The published HTML is regenerated on every push to `main` by the
 | `auth` | Master key, API keys, tenant tokens |
 | `cache` | LRU + TTL cache |
 | `cluster` | Cluster skeleton |
+| `collections` | Collection metadata service |
 | `config` | TOML configuration |
 | `documents` | Document service |
 | `errors` | Unified error type |
 | `facets` | Facet distribution engine |
 | `filters` | Filter expression parser & evaluator |
-| `fs2` | Optional helper |
 | `hybrid` | Hybrid query fusion (RRF) |
 | `highlighting` | `<em>` highlighting |
 | `indexing` | Tokenisation, inverted index, FST |

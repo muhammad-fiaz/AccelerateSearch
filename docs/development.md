@@ -32,9 +32,12 @@ cargo test --workspace --no-fail-fast
 ```
 
 * Unit tests live next to the code they cover (`#[cfg(test)] mod tests`).
-* Property-based tests use `proptest` for the filter parser and
-  tokenizer.
-* Integration tests in `tests/` exercise the HTTP layer end to end.
+* Property-based tests use `proptest` for the filter parser
+  (`filters::evaluator`) and the tokenizer
+  (`indexing::analyzer`).
+* Every crate that exposes a public type is documented with
+  `cargo doc --no-deps --workspace`; the CI fails on any
+  rustdoc warning.
 
 ## Lint and format
 
@@ -67,34 +70,36 @@ crates/         # library crates
   auth/         # master key, API keys, tenant tokens
   cache/        # LRU + TTL cache
   cluster/      # cluster skeleton (TODO)
+  collections/  # collection metadata service
   config/       # TOML config, validation
+  documents/    # document service (add, update, delete, get, list)
   errors/       # AppError and From impls
   facets/       # facet distribution
   filters/      # filter parser & evaluator
-  fs2/          # optional helper
-  hybrid/       # hybrid query fusion
+  hybrid/       # hybrid query fusion (RRF)
   highlighting/ # <em> highlight
-  indexing/     # tokenization + inverted index + FST
-  metrics/      # Prometheus
+  indexing/     # tokenization + inverted index + FST term dict
+  metrics/      # Prometheus exporter
   models/       # shared data types
   replication/  # replication skeleton (TODO)
-  scheduler/    # cron + interval
+  scheduler/    # cron + interval jobs
   search/       # BM25, ranking, query parser
   security/     # rate limit, CORS, audit
   server/       # HTTP lifecycle, banner
   sharding/     # sharding skeleton (TODO)
   snapshots/    # tar+zstd snapshots
   storage/      # StorageBackend trait + redb
-  tasks/        # task queue
+  synonyms/     # synonym map storage and lookup
+  tasks/        # async task queue
   telemetry/    # tracing-subscriber setup
-  typo/         # Levenshtein
+  typo/         # Damerau-Levenshtein
   utils/        # helpers (hash, random, time)
-  validation/   # input validation
+  validation/   # input validation + sanitization
   vector/       # embedding types + quantization
 config/         # default.toml
-docs/           # user/operator documentation
-benchmark/      # standalone benchmark
-.github/        # CI + release workflows
+docs/           # mdbook user guide (this site)
+benchmark/      # standalone benchmark project
+.github/        # CI + release + docs workflows
 ```
 
 ## Adding a new feature
